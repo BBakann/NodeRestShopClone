@@ -1,48 +1,126 @@
 const express = require('express');
 const router = express.Router();
 
-router.get('/', (req,res,next) => {
+const mongoose = require('mongoose');
+const Product = require('../models/product');
+
+const upload = require('../middlewares/uploadImage');
+
+router.get('/', async (req, res) => {
+  try {
+    const products = await Product.find();
     res.status(200).json({
-        message: 'Handling GET requests to /products '
+      count: products.length,
+      products: products.map(prod => ({
+        _id: prod._id,
+      name: prod.name,
+      price: prod.price,
+      imageUrl: prod.imageUrl ? `http://localhost:3000/uploads/${prod.imageUrl}` : null,
+      request: {
+        type: 'GET',
+        url: `http://localhost:3000/products/${prod._id}`
+  }
+}))
+
     });
+  } catch (err) {
+    res.status(500).json({ error: err });
+  }
 });
 
-router.post('/', (req,res,next) => {
-    const product = {
-        name : req.body.name ,
-        price: req.body.price
-    }
+
+router.post('/', upload.single('productImage'), async (req, res) => {
+  try {
+    const product = new Product({
+      name: req.body.name,
+      price: req.body.price,
+      imageUrl: req.file ? req.file.filename : null
+    });
+
+    const result = await product.save();
     res.status(201).json({
-        message: 'Handling POST requests to /products ',
-        createdProduct: product
+      message: 'Product created successfully',
+      createdProduct: result
     });
+  } catch (err) {
+    res.status(500).json({ error: err });
+  }
 });
 
-router.get('/:productId', (req,res,next) => {
-    const id = req.params.productId;
-    if(id === 'special'){
-        res.status(200).json({
-            message: 'You discovered the special ID',
-            id:id // id'yi söyleyecek
-        });
+
+router.get('/:productId', async (req, res) => {
+  const id = req.params.productId;
+
+  try {
+    const product = await Product.findById(id); // id'yi arar
+
+    if (product) {
+      res.status(200).json({
+        product: {
+          _id: product._id,
+          name: product.name,
+          price: product.price,
+          imageUrl: product.imageUrl ? `http://localhost:3000/uploads/${product.imageUrl}` : null,
+          request: {
+            type: 'GET',
+            url: `http://localhost:3000/products`
+          }
+        }
+      });
+    } else {
+      res.status(404).json({ message: 'Product not found' });
     }
-    else {
-        res.status(200).json({
-            message: 'You passed an ID'
-        })
-    };
+  } catch (err) {
+    res.status(500).json({ error: err });
+  }
 });
 
-router.patch('/:productId', (req,res,next) => {
+
+router.patch('/:productId', async (req, res) => {
+  const id = req.params.productId;
+
+  const updateOps = {};
+  for (const ops of req.body) {
+    updateOps[ops.propName] = ops.value;
+  }
+
+  try {
+    const result = await Product.updateOne({ _id: id }, { $set: updateOps });
+
     res.status(200).json({
-        message: 'Updated product!'
+      message: 'Product updated',
+      result: result,
+      request: {
+        type: 'GET',
+        url: `http://localhost:3000/products/${id}`
+      }
     });
+  } catch (err) {
+    res.status(500).json({ error: err });
+  }
 });
 
-router.delete('/:productId', (req,res,next) => {
+
+router.delete('/:productId', async (req, res) => {
+  const id = req.params.productId;
+
+  try {
+    const result = await Product.deleteOne({ _id: id });
     res.status(200).json({
-        message: 'Deleted product!'
+      message: 'Product deleted',
+      result: result,
+      request: {
+        type: 'POST',
+        url: 'http://localhost:3000/products',
+        body: {
+          name: 'String',
+          price: 'Number'
+        }
+      }
     });
+  } catch (err) {
+    res.status(500).json({ error: err });
+  }
 });
 
 module.exports = router;
