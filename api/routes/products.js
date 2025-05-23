@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-
 const mongoose = require('mongoose');
 const Product = require('../models/product');
-
 const upload = require('../middlewares/uploadImage');
+
+const checkAuth = require('../middlewares/check-auth');
 
 router.get('/', async (req, res) => {
   try {
@@ -13,15 +13,14 @@ router.get('/', async (req, res) => {
       count: products.length,
       products: products.map(prod => ({
         _id: prod._id,
-      name: prod.name,
-      price: prod.price,
-      imageUrl: prod.imageUrl ? `http://localhost:3000/uploads/${prod.imageUrl}` : null,
-      request: {
-        type: 'GET',
-        url: `http://localhost:3000/products/${prod._id}`
-  }
-}))
-
+        name: prod.name,
+        price: prod.price,
+        imageUrl: prod.imageUrl ? `http://localhost:3000/uploads/${prod.imageUrl}` : null,
+        request: {
+          type: 'GET',
+          url: `http://localhost:3000/products/${prod._id}`
+        }
+      }))
     });
   } catch (err) {
     res.status(500).json({ error: err });
@@ -29,7 +28,7 @@ router.get('/', async (req, res) => {
 });
 
 
-router.post('/', upload.single('productImage'), async (req, res) => {
+router.post('/', checkAuth, upload.single('productImage'), async (req, res) => {
   try {
     const product = new Product({
       name: req.body.name,
